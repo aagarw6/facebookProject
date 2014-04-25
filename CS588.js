@@ -204,21 +204,6 @@ the point.
 /////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////
 
-// Get n 32-bit-integers entropy as an array. Defaults to 1 word
-function GetRandomValues(n) {
-
-  var entropy = new Int32Array(n);
-  // This should work in WebKit.
-  window.crypto.getRandomValues(entropy);
-
-  // Typed arrays can be funky,
-  // so let's convert it to a regular array for our purposes.
-  var regularArray = [];
-  for (var i = 0; i < entropy.length; i++) {
-    regularArray.push(entropy[i]);
-  }
-  return regularArray;
-}
 
 // From http://aymanh.com/9-javascript-tips-you-may-not-know#Assertion
 // Just in case you want an assert() function
@@ -237,14 +222,6 @@ function assert(exp, message) {
 }
 
 // Very primitive encryption.
-function rot13(text) {
-  // JS rot13 from http://jsfromhell.com/string/rot13
-  return text.replace(/[a-zA-Z]/g,
-
-  function(c) {
-    return String.fromCharCode((c <= "Z" ? 90 : 122) >= (c = c.charCodeAt(0) + 13) ? c : c - 26);
-  });
-}
 
 function SetupUsernames() {
   // get who you are logged in as
@@ -258,10 +235,6 @@ function SetupUsernames() {
   }
 }
 
-function getClassName(obj) {
-  if (typeof obj != "object" || obj === null) return false;
-  return /(\w+)\(/.exec(obj.constructor.toString())[1];
-}
 
 function hasClass(element, cls) {
   var r = new RegExp('\\b' + cls + '\\b');
@@ -635,16 +608,12 @@ function GetMsgTextForDecryption(msg) {
 }
 
 function wbr(str, num) {
-  //return str.replace(RegExp("(\\w{" + num + "})(\\w)", "g"), function(all,text,char){
-  // return text + "<wbr>" + char;
-  //});
-  return str.replace(RegExp("(.{" + num + "})(.)", "g"), function(all, text, char) {
+    return str.replace(RegExp("(.{" + num + "})(.)", "g"), function(all, text, char) {
     return text + "<wbr>" + char;
   });
 }
 
 function SetMsgText(msg, new_text) {
-  //msg.innerHTML = wbr(new_text, 50);
   msg.innerHTML = new_text;
 }
 
