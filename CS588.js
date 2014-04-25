@@ -2,7 +2,7 @@
 // @namespace Modhi-Anshika
 // @name Modhi-Anshika
 // @description This project is based on a cryptography project given in CS255 at Stanford University, the instruction of the project and the starter script is available on the course website found at [insert link here]. To make use of this script, download Greacemonkey and Firefox..
-// @version 1.0
+// @version 1.1
 //
 // @include http://www.facebook.com/*
 // @include https://www.facebook.com/*
@@ -51,7 +51,7 @@ function Decrypt(cipherText, group) {
 
   var key = keys[group];
   var decrypted = CryptoJS.AES.decrypt(cipherText, key);
-  return decrypted;
+  return decrypted.toString(CryptoJS.enc.Utf8);
 }
 
 // Generate a new key for the given group.
@@ -305,7 +305,6 @@ function decryptTextOfChildNodes(e) {
     }
     for (var i = 0; i < msgs_array.length; ++i) {
       DecryptMsg(msgs_array[i]);
-	  alert(msgs_array[i]);
     }
   }
 
@@ -620,7 +619,7 @@ function GetMsgTextForDecryption(msg) {
       return mg;
 
     } else {
-      var innerText = msg.text;
+      var innerText = msg.textContent;
 
       // Get rid of the trailing newline, if there is one.
       if (innerText[innerText.length-1] === '\n') {
@@ -670,9 +669,7 @@ function DecryptMsg(msg) {
   // we mark the box with the class "decrypted" to prevent attempting to decrypt it multiple times.
   if (!/decrypted/.test(msg.className)) {
     var txt = GetMsgTextForDecryption(msg);
-	alert(msg.textContent+"*** in DecryptMsg*** Text is :"+ txt);
-	
-    var displayHTML;
+	var displayHTML;
     try {
       var group = CurrentGroup();
       var decryptedMsg = Decrypt(txt, group);
