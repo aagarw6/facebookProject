@@ -22,7 +22,6 @@ var keys = {}; // association map of keys: group -> key
 //-------------------------------------------------------------------------------
 
 // Some initialization functions are called at the very end of this script.
-// You only have to edit the top portion.
 
 // Return the encryption of the message for the given group, in the form of a string.
 //
@@ -58,13 +57,12 @@ function Decrypt(cipherText, group) {
 //
 // @param {String} group Group name.
 function GenerateKey(group) {
- 	var buf = new Uint8Array(1);
+    var buf = new Uint8Array(1);
 	window.crypto.getRandomValues(buf);
-	key = buf[0];
-    keys[group] = key;
+	var key = buf[0];
+	keys[group] = key;
     SaveKeys();
-    //UpdateKeysTable();
-	alert('New key added for '+group+' with value '+keys[group]);
+	alert("New key added for "+group+" with value "+key);
 }
 
 // Take the current group keys, and save them to disk.
@@ -83,12 +81,28 @@ function GetDbPassKey() {
   localStorage.setItem('facebook-dbPass-' + my_username, encodeURIComponent(dbPassword));
   return dbPassword;
 }
-
+/*
+function GetDbPassKey1() {
+	var tempPassword = prompt("DataBase Password:");
+	//sessionStorage.setItem('facebook-dbPass-' + encodeURIComponent(dbPassword));
+	var dbPass = localStorage.getItem('facebook-dbPass-' + my_username);
+	if(dbPass !== null){
+		var dbPassword = decodeURIComponent(dbPass);
+		return dbPassword;
+	}
+	dbPassword = prompt("DataBase Password:");
+	if(dbPassword === null) {
+    alert("Please enter a valid password to unlock database!");
+    throw "!!Not A Valid Password!!";
+  }
+  localStorage.setItem('facebook-dbPass-' + my_username, encodeURIComponent(dbPassword));
+  return dbPassword;
+}
+*/
 function SaveKeys() {
   var dbPass = GetDbPassKey();
   var key_str = JSON.stringify(keys);
   var encryptedDB = CryptoJS.AES.encrypt(key_str, dbPass);
-  //alert("***"+encryptedDB);
   localStorage.setItem('facebook-keys-' + my_username, encodeURIComponent(encryptedDB));
   }
 
@@ -411,15 +425,13 @@ function AddElements() {
 }
 
 function GenerateKeyWrapper() {
-  var group = document.getElementById('gen-key-group').value;
-
-  if (group.length < 1) {
+  var grp = document.getElementById('gen-key-group').value;
+  if (grp.length < 1) {
     alert("You need to set a group");
     return;
   }
-
-  GenerateKey(group);
-  
+  GenerateKey(grp);
+  var k = keys[grp];
   UpdateKeysTable();
 }
 
@@ -500,7 +512,7 @@ function UpdateKeysTable() {
   td.colSpan = "2";
   button = document.createElement('input');
   button.type = 'button';
-  button.value = 'Generate New Key';
+  button.value = 'Generate Key';
   button.addEventListener("click", GenerateKeyWrapper, false);
   td.appendChild(button);
   row.appendChild(td);
