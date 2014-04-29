@@ -2,7 +2,7 @@
 // @namespace Modhi-Anshika
 // @name Modhi-Anshika
 // @description This project is based on a cryptography project given in CS255 at Stanford University, the instruction of the project and the starter script is available on the course website found at [insert link here]. To make use of this script, download Greacemonkey and Firefox..
-// @version 1.1
+// @version 1.3
 //
 // @include http://www.facebook.com/*
 // @include https://www.facebook.com/*
@@ -19,6 +19,7 @@
 //-------------------------------------------------------------------------------
 var my_username; // user name of the facebook account is fetched from the browser
 var keys = {}; // association map of keys: group -> key
+var dbPassword = null;
 //-------------------------------------------------------------------------------
 
 // Some initialization functions are called at the very end of this script.
@@ -30,9 +31,9 @@ var keys = {}; // association map of keys: group -> key
 // @return {String} Encryption of the plaintext, encoded as a string.
 function Encrypt(plainText, group) {
   if(!(group in keys)){
-	alert(group+" does not have a key! Assign a key for this group in Settings.")
-	return;
-	}
+alert(group+" does not have a key! Assign a key for this group in Settings.")
+return;
+}
   var key = keys[group];
   var encrypted = CryptoJS.AES.encrypt(plainText, key);
   return encrypted;
@@ -60,7 +61,7 @@ function GenerateKey(group) {
     var buf = new Uint8Array(1);
 	window.crypto.getRandomValues(buf);
 	var key = buf[0];
-	keys[group] = key;
+	keys[group] = key.toString();
     SaveKeys();
 	alert("New key added for "+group+" with value "+key);
 }
@@ -68,37 +69,44 @@ function GenerateKey(group) {
 // Take the current group keys, and save them to disk.
 
 function GetDbPassKey() {
-	var dbPass = localStorage.getItem('facebook-dbPass-' + my_username);
-	if(dbPass !== null){
-		var dbPassword = decodeURIComponent(dbPass);
+	// during session
+	if((dbPassword.length > 0) && (dbPassword !== null) && (dbPassword !== undefined))
+		return dbPassword;
+	
+	var sessionPass = sessionStorage.getItem('facebook-dbPassword-' + my_username);
+	// session already started, facebook window is on, and user switches between tabs
+	if((sessionPass !== null) && (sessionPass !== undefined)){
+		dbPassword = decodeURIComponent(sessionPass);
 		return dbPassword;
 	}
-	dbPassword = prompt("DataBase Password:");
-	if(dbPassword === null) {
-    alert("Please enter a valid password to unlock database!");
-    throw "!!Not A Valid Password!!";
-  }
-  localStorage.setItem('facebook-dbPass-' + my_username, encodeURIComponent(dbPassword));
-  return dbPassword;
-}
-/*
-function GetDbPassKey1() {
-	var tempPassword = prompt("DataBase Password:");
-	//sessionStorage.setItem('facebook-dbPass-' + encodeURIComponent(dbPassword));
+	// session is about to start
+	dbPassword = prompt("Enter a password: ");
+	if((dbPassword.length < 1) || (dbPassword === null)) {
+		//alert("Password is not set yet! Cannot access database.");
+		throw "!!Not A Valid Password!! Cannot access database.";
+	}
+	// retrieving stored password
 	var dbPass = localStorage.getItem('facebook-dbPass-' + my_username);
-	if(dbPass !== null){
-		var dbPassword = decodeURIComponent(dbPass);
+	// first time user
+	if((dbPass === null) || (dbPass === undefined)){
+		localStorage.setItem('facebook-dbPass-' + my_username, encodeURIComponent(dbPassword));
+		sessionStorage.setItem('facebook-dbPassword-' + my_username, encodeURIComponent(dbPassword));
+		alert("Database password is set!");
 		return dbPassword;
 	}
-	dbPassword = prompt("DataBase Password:");
-	if(dbPassword === null) {
-    alert("Please enter a valid password to unlock database!");
-    throw "!!Not A Valid Password!!";
-  }
-  localStorage.setItem('facebook-dbPass-' + my_username, encodeURIComponent(dbPassword));
-  return dbPassword;
+	// a password already set 
+	sessionPass = decodeURIComponent(dbPass);
+	alert("Password is"+sessionPass);// Modhi: just to remind me incase i forgot the password 
+	// intruder
+	if(dbPassword !== sessionPass) {
+		//alert("Invalid Password!!");
+		dbPassword = "";
+		throw "!!Not A Valid Password!! Mind your own business @_@";
+	}
+	// legitimate user
+	return dbPassword;
 }
-*/
+
 function SaveKeys() {
   var dbPass = GetDbPassKey();
   var key_str = JSON.stringify(keys);
@@ -115,7 +123,7 @@ function LoadKeys() {
   var saved = localStorage.getItem('facebook-keys-' + my_username);
   if (saved) {
     var encryptedDB = decodeURIComponent(saved);
-	var decryptedDB = CryptoJS.AES.decrypt(encryptedDB, dbPass);
+var decryptedDB = CryptoJS.AES.decrypt(encryptedDB, dbPass);
     //alert("key"+dbPass+" ***"+encryptedDB+" @@"+decryptedDB);
     // CS255-todo: plaintext keys were on disk?
     var keyString = decryptedDB.toString(CryptoJS.enc.Utf8);
@@ -285,7 +293,7 @@ function decryptTextOfChildNodes(e) {
   var msgs = e.getElementsByClassName('mbs _5pbx userContent');
   
   if (msgs.length > 0) {
-	
+
     var msgs_array = new Array();
     for (var i = 0; i < msgs.length; ++i) {
       msgs_array[i] = msgs[i];
@@ -431,7 +439,6 @@ function GenerateKeyWrapper() {
     return;
   }
   GenerateKey(grp);
-  var k = keys[grp];
   UpdateKeysTable();
 }
 
@@ -650,7 +657,7 @@ function DecryptMsg(msg) {
   // we mark the box with the class "decrypted" to prevent attempting to decrypt it multiple times.
   if (!/decrypted/.test(msg.className)) {
     var txt = GetMsgTextForDecryption(msg);
-	var displayHTML;
+var displayHTML;
     try {
       var group = CurrentGroup();
       var decryptedMsg = Decrypt(txt, group);
@@ -1574,7 +1581,7 @@ AddElements();
 UpdateKeysTable();
 RegisterChangeEvents();
 
-console.log("CS255 script finished loading.");
+console.log("Script finished loading.");
 
 if (typeof phantom !== "undefined") {
   console.log("Hello! You're running in phantom.js.");
