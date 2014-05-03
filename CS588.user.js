@@ -36,11 +36,13 @@ function Encrypt(plainText, group) {
     return;
   }
   var key = keys[group];
-  var encrypted = CryptoJS.AES.encrypt(plainText, key);
   var hashInteger = CryptoJS.SHA3(plainText);
+  plainText = plainText + "!a#a$aRt#$sa" + hashInteger;
+  var encrypted = CryptoJS.AES.encrypt(plainText, key);
+  
   //localStorage.setItem("facebook-messages-" + my_username + plainText, encodeURIComponent(hashInteger));
   //setCookie("facebook-messages-" + my_username + plainText, hashInteger, 30);
-  return encrypted + "!a#a$aRt#$sa" + hashInteger;
+  return encrypted;
 }
 
 // Return the decryption of the message for the given group, in the form of a string.
@@ -54,10 +56,12 @@ function Decrypt(cipherText, group) {
     throw "This group does not not have a key. Cannot decrypt message.";
 
   var key = keys[group];
-  var hashInteger = cipherText.split("!a#a$aRt#$sa")[1];
-  var cipher = cipherText.split("!a#a$aRt#$sa")[0];
-  var decrypted = CryptoJS.AES.decrypt(cipher, key);
-  var newHashInteger = CryptoJS.SHA3(decrypted.toString(CryptoJS.enc.Utf8));
+  var decrypted = CryptoJS.AES.decrypt(cipherText, key);
+  decrypted = decrypted.toString(CryptoJS.enc.Utf8);
+  var hashInteger = decrypted.split("!a#a$aRt#$sa")[1];
+  var plainText = decrypted.split("!a#a$aRt#$sa")[0];
+
+  var newHashInteger = CryptoJS.SHA3(plainText);
   if (hashInteger == newHashInteger) {
     //alert("Message Intact");
   }
@@ -65,7 +69,7 @@ function Decrypt(cipherText, group) {
     //alert("Message changed");
     throw "Message authentication failed. Message changed.";
   }
-  return decrypted.toString(CryptoJS.enc.Utf8);
+  return plainText;
 }
 
 // Generate a new key for the given group.
@@ -108,12 +112,13 @@ function SaveKeys() {
   var dbPass = GetDbPassKey();
   var key_str = JSON.stringify(keys);
   var integerHash = CryptoJS.SHA3(key_str);
+  key_str = key_str + "aby12ks&jd/sa" + integerHash;
   var encryptedDB = CryptoJS.AES.encrypt(key_str, dbPass);
   localStorage.setItem('facebook-keys-' + my_username, encodeURIComponent(encryptedDB));
   //document.cookie
-  localStorage.setItem('facebook-hash-' + my_username, encodeURIComponent(integerHash));
-  setCookie("userKeys"+my_username, encryptedDB,30);
-  setCookie("keyHash"+my_username, integerHash, 30);
+  //localStorage.setItem('facebook-hash-' + my_username, encodeURIComponent(integerHash));
+  setCookie("facebook-keys-"+my_username, encryptedDB,30);
+  //setCookie("keyHash"+my_username, integerHash, 30);
 }
 
 // Load the group keys from disk.
@@ -125,6 +130,7 @@ function LoadKeys() {
   
   var saved = localStorage.getItem('facebook-keys-' + my_username);
   var keyString = "";
+
   if (saved) {
     var encryptedDB = decodeURIComponent(saved);
     var decryptedDB = CryptoJS.AES.decrypt(encryptedDB, dbPass);
@@ -133,7 +139,7 @@ function LoadKeys() {
 
   else {
     //alert(my_username);
-	  saved = getCookie("userKeys"+my_username);
+	  saved = getCookie("facebook-keys-"+my_username);
     //alert("in else "+saved);
   	if (saved) {
   		var encryptedCookieDB = saved;
@@ -143,11 +149,9 @@ function LoadKeys() {
       //alert("exiting loadKeys");
   }
 
-  var integerHash = localStorage.getItem('facebook-hash-' + my_username);
-  if (integerHash) {
-    integerHash = decodeURIComponent(integerHash);  
-  }
-  integerHash = getCookie("keyHash"+my_username);
+  var integerHash = keyString.split("aby12ks&jd/sa")[1];
+  keyString = keyString.split("aby12ks&jd/sa")[0];
+  
   var newHashInteger = CryptoJS.SHA3(keyString);
   if (integerHash == newHashInteger) {
     alert("Keys intact");
