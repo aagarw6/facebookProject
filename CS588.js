@@ -2,7 +2,7 @@
 // @namespace Modhi-Anshika
 // @name Modhi-Anshika
 // @description This project is based on a cryptography project given in CS255 at Stanford University, the instruction of the project and the starter script is available on the course website found at [insert link here]. To make use of this script, download Greacemonkey and Firefox..
-// @version 1.4
+// @version 1.5
 //
 // @include http://www.facebook.com/*
 // @include https://www.facebook.com/*
@@ -12,185 +12,137 @@
 // @exclude https://www.facebook.com/events/*
 // ==/UserScript==
 
-// Strict mode makes it easier to catch errors.
-// You may comment this out if you want.
-// See http://ejohn.org/blog/ecmascript-5-strict-mode-json-and-more/
 "use strict";
 //-------------------------------------------------------------------------------
-var my_username = null; // user name of the facebook account is fetched from the browser
+var my_username = null; // user name of the Facebook account is fetched from the browser
 var keys = {}; // association map of keys: group -> key
 var dbPassword = null;
-//var fbCookie = document.cookie;
 //-------------------------------------------------------------------------------
-
-// Some initialization functions are called at the very end of this script.
-
-// Return the encryption of the message for the given group, in the form of a string.
-//
 // @param {String} plainText String to encrypt.
 // @param {String} group Group name.
 // @return {String} Encryption of the plaintext, encoded as a string.
 function Encrypt(plainText, group) {
   if(!(group in keys)){
-alert(group+" does not have a key! Assign a key for this group in Settings.")
-return;
-}
+    alert(group+" does not have a key! Assign a key for this group in Settings.")
+    return;
+  }
   var key = keys[group];
-  var encrypted = CryptoJS.AES.encrypt(plainText, key);
   var hashInteger = CryptoJS.SHA3(plainText);
-  localStorage.setItem("facebook-messages-" + my_username + plainText, encodeURIComponent(hashInteger));
+  plainText = plainText + "!a#a$aRt#$sa" + hashInteger;
+  var encrypted = CryptoJS.AES.encrypt(plainText, key);
   return encrypted;
 }
-
-// Return the decryption of the message for the given group, in the form of a string.
-// Throws an error in case the string is not properly encrypted.
-//
 // @param {String} cipherText String to decrypt.
 // @param {String} group Group name.
 // @return {String} Decryption of the ciphertext.
 function Decrypt(cipherText, group) {
   if(!(group in keys))
     throw "This group does not not have a key. Cannot decrypt message.";
-
   var key = keys[group];
   var decrypted = CryptoJS.AES.decrypt(cipherText, key);
-  var hashInteger = localStorage.getItem("facebook-messages-" + my_username + decrypted.toString(CryptoJS.enc.Utf8));
-  hashInteger = decodeURIComponent(hashInteger);
-  var newHashInteger = CryptoJS.SHA3(decrypted.toString(CryptoJS.enc.Utf8));
+  decrypted = decrypted.toString(CryptoJS.enc.Utf8);
+  var hashInteger = decrypted.split("!a#a$aRt#$sa")[1];
+  var plainText = decrypted.split("!a#a$aRt#$sa")[0];
+  var newHashInteger = CryptoJS.SHA3(plainText);
   if (hashInteger == newHashInteger) {
-    //alert("Message Intact");
   }
   else {
-    //alert("Message changed");
     throw "Message authentication failed. Message changed.";
   }
-  return decrypted.toString(CryptoJS.enc.Utf8);
+  return plainText;
 }
-
-// Generate a new key for the given group.
-//
 // @param {String} group Group name.
 function GenerateKey(group) {
-    var buf = new Uint8Array(1);
+	var buf = new Uint8Array(1);
 	window.crypto.getRandomValues(buf);
 	var key = buf[0];
 	keys[group] = key.toString();
 	SaveKeys();
-alert("New key added for "+group+" with value "+key);
+	alert("New key added for "+group+" with value "+key);
 }
-
-// Take the current group keys, and save them to disk.
 function GetDbPassKey() {
+  if(dbPassword != null)
+	return dbPassword;
   if (my_username != null) {
-    var dbPass = localStorage.getItem('facebook-dbPass-' + my_username);
-    if(dbPass != null){
-      var dbPassword = decodeURIComponent(dbPass);
-      return dbPassword;
-    }
-    dbPassword = prompt("DataBase Password:");
-    if(dbPassword == null) {
-      alert("Please enter a valid password to unlock database!");
-      throw "!!Not A Valid Password!!";
-    }
-    localStorage.setItem('facebook-dbPass-' + my_username, encodeURIComponent(dbPassword));
-    return dbPassword;
-  }
+		var dbPass = sessionStorage.getItem('facebook-dbPass-' + my_username);
+		if(dbPass != null){
+		  var dbPassword = decodeURIComponent(dbPass);
+		  return dbPassword;
+		}
+		dbPass = getCookie("facebookDBPass" + my_username);
+		dbPassword = prompt("DataBase Password:");
+		if(dbPassword == null) {
+		  alert("Invalid password! Cannot unlock database!");
+		  throw "!!Invalid Password!!";
+		}
+		if (dbPass == null) {
+			sessionStorage.setItem('facebook-dbPass-' + my_username, encodeURIComponent(dbPassword));
+			setCookie("facebookDBPass" + my_username, dbPassword, 30);
+			return dbPassword;
+		}
+		if (dbPass == dbPassword){	
+			return dbPass;
+		}
+		throw "!!Invalid Password!!";
+	}
 }
-
 function SaveKeys() {
   var dbPass = GetDbPassKey();
   var key_str = JSON.stringify(keys);
   var integerHash = CryptoJS.SHA3(key_str);
+  key_str = key_str + "aby12ks&jd/sa" + integerHash;
   var encryptedDB = CryptoJS.AES.encrypt(key_str, dbPass);
   localStorage.setItem('facebook-keys-' + my_username, encodeURIComponent(encryptedDB));
-  //document.cookie
-  localStorage.setItem('facebook-hash-' + my_username, encodeURIComponent(integerHash));
-  setCookie("userKeys",encryptedDB,30);
+  setCookie("facebook-keys-"+my_username, encryptedDB,30);
 }
-
-// Load the group keys from disk.
 function LoadKeys() {
-    /* var delete_cookie = function(name) {
-    document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:01 GMT;';};
-    delete_cookie("userKeys");
-    alert("cookie deleted");*/
-  
   var dbPass = GetDbPassKey();	
   assert(my_username != undefined);
-  keys = {}; // Reset the keys.
+  keys = {};
   var saved = localStorage.getItem('facebook-keys-' + my_username);
-  var integerHash = localStorage.getItem('facebook-hash-' + my_username);
-  integerHash = decodeURIComponent(integerHash);
+  var keyString = "";
   if (saved) {
     var encryptedDB = decodeURIComponent(saved);
     var decryptedDB = CryptoJS.AES.decrypt(encryptedDB, dbPass);
-    //alert("key"+dbPass+" ***"+encryptedDB+" @@"+decryptedDB);
-    // CS255-todo: plaintext keys were on disk?
-    var keyString = decryptedDB.toString(CryptoJS.enc.Utf8);
-    var newHashInteger = CryptoJS.SHA3(keyString);
-    if (integerHash == newHashInteger) {
-      alert("Keys intact");
-    }
-    else {
-      alert("WARNING! Keys changed!!");
-      return;
-    }
-    //alert(keyString);
-    keys = JSON.parse(keyString);
+    keyString = decryptedDB.toString(CryptoJS.enc.Utf8);
   }
   else {
-    alert(my_username);
-	saved = getCookie("userKeys");
-    alert("in else "+saved);
-	if (saved) {
-		var encryptedCookieDB = saved;
-		var decryptedCookieDB = CryptoJS.AES.decrypt(encryptedCookieDB, dbPass);
-        var cookieKeyString = decryptedCookieDB.toString(CryptoJS.enc.Utf8);
-		keys = JSON.parse(cookieKeyString);
-	}
-       alert("exiting loadKeys");
+   saved = getCookie("facebook-keys-"+my_username);
+   if (saved) {
+   var encryptedCookieDB = saved;
+   var decryptedCookieDB = CryptoJS.AES.decrypt(encryptedCookieDB, dbPass);
+      keyString = decryptedCookieDB.toString(CryptoJS.enc.Utf8);
+   }
   }
+  var integerHash = keyString.split("aby12ks&jd/sa")[1];
+  keyString = keyString.split("aby12ks&jd/sa")[0];
+  var newHashInteger = CryptoJS.SHA3(keyString);
+  if (integerHash == newHashInteger) {
+    alert("Keys intact");
+  }
+  else {
+    alert("WARNING! Keys changed!!");
+    return;
+  }
+  keys = JSON.parse(keyString);
 }
-
-function setCookie(cname,cvalue,exdays)
-{
+function setCookie(cname,cvalue,exdays){
 	var d = new Date();
 	d.setTime(d.getTime()+(exdays*24*60*60*1000));
 	var expires = "expires="+d.toGMTString();
 	document.cookie = cname+"="+cvalue+"; "+expires;
 }
-
-function getCookie(cname)
-{
+function getCookie(cname){
 	var name = cname + "=";
 	var ca = document.cookie.split(';');
-	for(var i=0; i<ca.length; i++) 
-	  {
-	  var c = ca[i].trim();
-	  if (c.indexOf(name)==0) 
+	for(var i=0; i<ca.length; i++){
+		var c = ca[i].trim();
+		if (c.indexOf(name)==0)
 		return c.substring(name.length,c.length);
-	  }
+	}
 	return null;
 }
 
-function checkCookie()
-{
-var userKeys = getCookie("userKeys");
-if (userKeys!="")
-  {
-  alert("Database loaded!");
-  return userKeys;
-  }
-else 
-  {
-  var key_str = JSON.stringify(keys);
-  userKeys = key_str.toString();
-  if (userKeys!="" && userKeys!=null)
-    {
-    setCookie("userKeys",userKeys,30);
-    }
-  }
-}
 /////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////
 //
@@ -542,54 +494,7 @@ var CryptoJS=CryptoJS||function(v,p){
 
 
 // -----------------------------------------------------------
-
-/*
-Here are the basic cryptographic functions (implemented farther down)
-you need to do the assignment:
-
-function sjcl.cipher.aes(key)
-
-This function creates a new AES encryptor/decryptor with a given key.
-Note that the key must be an array of 4, 6, or 8 32-bit words for the
-function to work. For those of you keeping score, this constructor does
-all the scheduling needed for the cipher to work.
-
-encrypt: function(plaintext)
-
-This function encrypts the given plaintext. The plaintext argument
-should take the form of an array of four (32-bit) integers, so the plaintext
-should only be one block of data.
-
-decrypt: function(ciphertext)
-
-This function decrypts the given ciphertext. Again, the ciphertext argument
-should be an array of 4 integers.
-
-A silly example of this in action:
-
-var key1 = new Array(8);
-var cipher = new sjcl.cipher.aes(key1);
-var dumbtext = new Array(4);
-dumbtext[0] = 1; dumbtext[1] = 2; dumbtext[2] = 3; dumbtext[3] = 4;
-var ctext = cipher.encrypt(dumbtext);
-var outtext = cipher.decrypt(ctext);
-
-Obviously our key is just all zeroes in this case, but this should illustrate
-the point.
-*/
-
-/////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////
-//
-// Should not _have_ to change anything below here.
-// Helper functions and sample code.
-//
-/////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////
-
-
 // From http://aymanh.com/9-javascript-tips-you-may-not-know#Assertion
-// Just in case you want an assert() function
 
 function AssertException(message) {
   this.message = message;
@@ -688,7 +593,7 @@ function RegisterChangeEvents() {
   // to the HTML to discover new posts or comments.
   var doc = document.addEventListener("DOMNodeInserted", DocChanged, false);
 }
-// -------------------------DONE-----------------------------
+
 function AddEncryptionTab() {
 
   // On the Account Settings page, show the key setups
@@ -919,7 +824,6 @@ function DoEncrypt(e) {
   }
 
   //Get the plain text
-  //var vntext=textHolder.value;
   var vntext = dummy.value;
 
   //Ecrypt
